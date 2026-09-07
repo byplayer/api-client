@@ -29,7 +29,7 @@ class AOJService(onlinejudge.type.Service):
         return 'http://judge.u-aizu.ac.jp/onlinejudge/'
 
     def get_api_base_url(self) -> str:
-        return 'https://judgeapi.u-aizu.ac.jp'
+        return 'https://onlinejudge.u-aizu.ac.jp/api'
 
     def get_name(self) -> str:
         return 'Aizu Online Judge'
@@ -86,7 +86,7 @@ class AOJService(onlinejudge.type.Service):
 
     def is_logged_in(self, *, session: Optional[requests.Session] = None) -> bool:
         session = session or utils.get_default_session()
-        url = 'https://judgeapi.u-aizu.ac.jp/self'
+        url = 'https://onlinejudge.u-aizu.ac.jp/api/self'
         resp = utils.request('GET', url, session=session,
                              raise_for_status=False)
         if resp.status_code != 200:
@@ -130,7 +130,7 @@ class AOJProblem(onlinejudge.type.Problem):
             logger.info("fallback: parsing HTML")
 
             # reference: http://developers.u-aizu.ac.jp/api?key=judgeapi%2Fresources%2Fdescriptions%2F%7Blang%7D%2F%7Bproblem_id%7D_GET
-            url = 'https://judgeapi.u-aizu.ac.jp/resources/descriptions/ja/{}'.format(
+            url = 'https://onlinejudge.u-aizu.ac.jp/api/resources/descriptions/ja/{}'.format(
                 self.problem_id)
             resp = utils.request('GET', url, session=session)
             html = json.loads(resp.text)['html']
@@ -223,7 +223,7 @@ class AOJProblem(onlinejudge.type.Problem):
         # get current user ID
         user_id = None
         try:
-            self_api_url = 'https://judgeapi.u-aizu.ac.jp/self'
+            self_api_url = 'https://onlinejudge.u-aizu.ac.jp/api/self'
             self_resp = utils.request('GET', self_api_url, session=session)
             if self_resp.status_code == 200:
                 user_info = json.loads(self_resp.text)
@@ -233,7 +233,7 @@ class AOJProblem(onlinejudge.type.Problem):
             # Continue without user_id - it's optional
 
         # prepare submission data
-        url = 'https://judgeapi.u-aizu.ac.jp/submissions'
+        url = 'https://onlinejudge.u-aizu.ac.jp/api/submissions'
         data = {
             'problemId': self.problem_id,
             'language': str(language_id),
@@ -328,7 +328,7 @@ class AOJArenaProblem(onlinejudge.type.Problem):
 
         if self._problem_id is None:
             session = session or utils.get_default_session()
-            url = 'https://judgeapi.u-aizu.ac.jp/arenas/{}/problems'.format(
+            url = 'https://onlinejudge.u-aizu.ac.jp/api/arenas/{}/problems'.format(
                 self.arena_id)
             resp = utils.request('GET', url, session=session)
             problems = json.loads(resp.text)
@@ -396,7 +396,7 @@ class AOJSubmission(onlinejudge.type.Submission):
             current_user_id = self._user_id
             if current_user_id is None:
                 # Fetch from API if not cached
-                self_api_url = 'https://judgeapi.u-aizu.ac.jp/self'
+                self_api_url = 'https://onlinejudge.u-aizu.ac.jp/api/self'
                 self_resp = utils.request('GET', self_api_url, session=session)
                 if self_resp.status_code != 200:
                     raise SubmissionError('failed to get current user information from API')
@@ -407,7 +407,7 @@ class AOJSubmission(onlinejudge.type.Submission):
                     raise SubmissionError('user ID not found in user information')
 
             # Get recent submissions
-            submissions_api_url = 'https://judgeapi.u-aizu.ac.jp/submission_records/recent'
+            submissions_api_url = 'https://onlinejudge.u-aizu.ac.jp/api/submission_records/recent'
             submissions_resp = utils.request('GET', submissions_api_url, session=session)
             if submissions_resp.status_code != 200:
                 raise SubmissionError('failed to get submission data from API')
@@ -468,12 +468,13 @@ class AOJSubmission(onlinejudge.type.Submission):
 
     @classmethod
     def from_url(cls, url: str) -> Optional['AOJSubmission']:
-        # example: https://judgeapi.u-aizu.ac.jp/submissions/afabd5d0-e47c-471f-b988-fde2f62fe6cd
+        # example: https://onlinejudge.u-aizu.ac.jp/api/submissions/afabd5d0-e47c-471f-b988-fde2f62fe6cd
+        # example: https://judgeapi.u-aizu.ac.jp/submissions/afabd5d0-e47c-471f-b988-fde2f62fe6cd (the old API host, gone now)
         result = urllib.parse.urlparse(url)
         if result.scheme in ('', 'http', 'https') \
-                and result.netloc == 'judgeapi.u-aizu.ac.jp':
+                and result.netloc in ('judgeapi.u-aizu.ac.jp', 'onlinejudge.u-aizu.ac.jp'):
             m = re.match(
-                r'^/submissions/([0-9a-f\-]+)$', utils.normpath(result.path))
+                r'^(?:/api)?/submissions/([0-9a-f\-]+)$', utils.normpath(result.path))
             if m:
                 submission_token = m.group(1)
                 return cls(submission_token=submission_token)
